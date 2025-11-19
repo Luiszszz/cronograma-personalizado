@@ -105,7 +105,7 @@
         const { useState, useEffect, useMemo, useRef } = React;
 
         // --- Constants & Initial Data ---
-        const STORAGE_KEY = 'studyScheduleData_React_Final_Styled_v1'; 
+        const STORAGE_KEY = 'studyScheduleData_React_Final_V3_8'; 
         
         const COLORS = {
             "Física": "#3b82f6", "Matemática": "#6366f1", "Química": "#8b5cf6", "Português": "#ec4899",
@@ -161,6 +161,9 @@
             const [selectedTask, setSelectedTask] = useState(null);
             const [showHelp, setShowHelp] = useState(false);
             const [currentCalendarDate, setCurrentCalendarDate] = useState(new Date());
+
+            // Essay Form State
+            const [essayForm, setEssayForm] = useState({ theme: '', genre: '', grade: '' });
 
             // Initialize
             useEffect(() => {
@@ -319,8 +322,20 @@
                 setActiveModal('history');
             };
 
-            const addEssay = (theme, genre, grade) => {
-                setEssays([{ id: Date.now(), theme, genre, grade: parseInt(grade), date: new Date().toLocaleDateString('pt-BR') }, ...essays]);
+            const handleAddEssay = () => {
+                if (!essayForm.theme || !essayForm.grade) {
+                    alert("Preencha pelo menos o tema e a nota.");
+                    return;
+                }
+                const newEssay = { 
+                    id: Date.now(), 
+                    theme: essayForm.theme, 
+                    genre: essayForm.genre, 
+                    grade: parseInt(essayForm.grade), 
+                    date: new Date().toLocaleDateString('pt-BR') 
+                };
+                setEssays([newEssay, ...essays]);
+                setEssayForm({ theme: '', genre: '', grade: '' }); // Reset form
                 setActiveModal(null);
             };
 
@@ -360,7 +375,7 @@
                     {/* Header */}
                     <header className="text-center mb-24 animate-fade-in-up relative">
                          <div className="inline-block mb-8 px-6 py-2.5 rounded-full bg-indigo-100 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 text-sm font-extrabold tracking-[0.2em] uppercase border border-indigo-200 dark:border-indigo-500/20 shadow-sm">
-                            Student Dashboard V3.7
+                            Student Dashboard V3.8
                         </div>
                         <h1 className="text-7xl md:text-9xl font-display font-black tracking-tighter mb-8 text-slate-900 dark:text-white leading-none drop-shadow-sm">
                             <span className="block mb-2 text-transparent bg-clip-text bg-gradient-to-br from-slate-800 to-slate-500 dark:from-white dark:to-slate-500">Meu</span>
@@ -463,7 +478,7 @@
                     <div className="glass-card rounded-3xl p-8 mt-12 border-l-4 border-indigo-500">
                         <div className="flex flex-col sm:flex-row items-center justify-between mb-8 pb-4 border-b border-slate-200/60 dark:border-slate-700/60 gap-4">
                             <div><h2 className="text-3xl font-display font-bold text-slate-800 dark:text-white">Minhas Redações</h2></div>
-                            <button onClick={() => setActiveModal('essay')} className="w-full sm:w-auto bg-slate-900 dark:bg-white dark:text-slate-900 text-white text-sm font-bold py-3 px-6 rounded-xl shadow-lg hover:shadow-xl transition-all active:scale-95 flex items-center justify-center gap-2"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path></svg>Nova Redação</button>
+                            <button onClick={() => { setEssayForm({theme:'', genre:'', grade:''}); setActiveModal('essay'); }} className="w-full sm:w-auto bg-slate-900 dark:bg-white dark:text-slate-900 text-white text-sm font-bold py-3 px-6 rounded-xl shadow-lg hover:shadow-xl transition-all active:scale-95 flex items-center justify-center gap-2"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path></svg>Nova Redação</button>
                         </div>
                         <div className="space-y-3">
                             {essays.length === 0 && <p className="text-slate-400 text-center italic">Nenhuma redação registrada.</p>}
@@ -499,11 +514,11 @@
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
                                         <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">Planejado (Min)</label>
-                                        <input type="number" className="w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 font-bold" defaultValue={selectedTask.planned} id="editPlanned" />
+                                        <input type="number" className="w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 font-bold text-slate-900 dark:text-white" defaultValue={selectedTask.planned} id="editPlanned" />
                                     </div>
                                     <div>
                                         <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">Estudado (Min)</label>
-                                        <input type="number" className="w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 font-bold" defaultValue={selectedTask.studied} id="editStudied" />
+                                        <input type="number" className="w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 font-bold text-slate-900 dark:text-white" defaultValue={selectedTask.studied} id="editStudied" />
                                     </div>
                                 </div>
                                 <button onClick={() => {
@@ -534,9 +549,9 @@
                                     </div>
                                     <div className="flex items-center gap-3">
                                         <span className="text-xs font-bold text-slate-400 uppercase">Peso</span>
-                                        <button onClick={() => setWeights({...weights, [s]: Math.max(1, weights[s]-1)})} className="w-8 h-8 bg-white dark:bg-slate-900 rounded-lg font-bold">-</button>
+                                        <button onClick={() => setWeights({...weights, [s]: Math.max(1, weights[s]-1)})} className="w-8 h-8 bg-white dark:bg-slate-900 rounded-lg font-bold text-slate-900 dark:text-white">-</button>
                                         <span className="font-bold w-4 text-center dark:text-white">{weights[s]}</span>
-                                        <button onClick={() => setWeights({...weights, [s]: Math.min(5, weights[s]+1)})} className="w-8 h-8 bg-white dark:bg-slate-900 rounded-lg font-bold">+</button>
+                                        <button onClick={() => setWeights({...weights, [s]: Math.min(5, weights[s]+1)})} className="w-8 h-8 bg-white dark:bg-slate-900 rounded-lg font-bold text-slate-900 dark:text-white">+</button>
                                     </div>
                                 </div>
                             ))}
@@ -550,9 +565,9 @@
                                 <div className="flex justify-between items-center mb-6">
                                     <h3 className="text-xl font-bold dark:text-white">Calendário</h3>
                                     <div className="flex gap-2">
-                                        <button onClick={() => setCurrentCalendarDate(new Date(currentCalendarDate.setMonth(currentCalendarDate.getMonth()-1)))} className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800">←</button>
+                                        <button onClick={() => setCurrentCalendarDate(new Date(currentCalendarDate.setMonth(currentCalendarDate.getMonth()-1)))} className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white">←</button>
                                         <span className="font-bold dark:text-white min-w-[100px] text-center">{currentCalendarDate.toLocaleDateString('pt-BR', {month:'long'})}</span>
-                                        <button onClick={() => setCurrentCalendarDate(new Date(currentCalendarDate.setMonth(currentCalendarDate.getMonth()+1)))} className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800">→</button>
+                                        <button onClick={() => setCurrentCalendarDate(new Date(currentCalendarDate.setMonth(currentCalendarDate.getMonth()+1)))} className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white">→</button>
                                     </div>
                                 </div>
                                 <div className="grid grid-cols-7 gap-2">
@@ -585,10 +600,37 @@
                     {/* Finish Week Modal */}
                     <Modal isOpen={activeModal === 'finish'} onClose={() => setActiveModal(null)} title="Concluir Semana">
                         <p className="text-slate-500 mb-4">Salve o progresso e inicie uma nova semana.</p>
-                        <textarea id="finishNote" className="w-full p-4 bg-slate-50 dark:bg-slate-900 rounded-2xl outline-none focus:ring-2 ring-emerald-500 min-h-[100px]" placeholder="Notas sobre a semana..."></textarea>
+                        <textarea id="finishNote" className="w-full p-4 bg-slate-50 dark:bg-slate-900 rounded-2xl outline-none focus:ring-2 ring-emerald-500 min-h-[100px] text-slate-900 dark:text-white" placeholder="Notas sobre a semana..."></textarea>
                         <div className="flex gap-3 mt-6">
                              <button onClick={() => setActiveModal(null)} className="flex-1 py-3 rounded-xl font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800">Cancelar</button>
                              <button onClick={() => finishWeek(document.getElementById('finishNote').value)} className="flex-1 py-3 rounded-xl font-bold text-white bg-emerald-600 hover:bg-emerald-500 shadow-lg">Salvar</button>
+                        </div>
+                    </Modal>
+                    
+                    {/* Essay Modal */}
+                    <Modal isOpen={activeModal === 'essay'} onClose={() => setActiveModal(null)} title="Nova Redação">
+                        <div className="space-y-4">
+                            <input 
+                                placeholder="Tema" 
+                                value={essayForm.theme}
+                                onChange={e => setEssayForm({...essayForm, theme: e.target.value})}
+                                className="w-full p-3 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white rounded-xl font-medium outline-none focus:ring-2 ring-indigo-500 placeholder-slate-400" 
+                            />
+                             <input 
+                                placeholder="Gênero (Ex: Dissertação)" 
+                                value={essayForm.genre}
+                                onChange={e => setEssayForm({...essayForm, genre: e.target.value})}
+                                className="w-full p-3 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white rounded-xl font-medium outline-none focus:ring-2 ring-indigo-500 placeholder-slate-400" 
+                            />
+                            <input 
+                                type="number" 
+                                placeholder="Nota (0-1000)" 
+                                max="1000" 
+                                value={essayForm.grade}
+                                onChange={e => setEssayForm({...essayForm, grade: e.target.value})}
+                                className="w-full p-3 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white rounded-xl font-medium outline-none focus:ring-2 ring-indigo-500 placeholder-slate-400" 
+                            />
+                            <button onClick={handleAddEssay} className="w-full py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-500">Adicionar</button>
                         </div>
                     </Modal>
                     
