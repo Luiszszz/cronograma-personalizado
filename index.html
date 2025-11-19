@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Meu Cronograma RPG V9.0</title>
+    <title>Meu Cronograma RPG V15.0</title>
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -23,7 +23,7 @@
     <!-- Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
     
-    <!-- Confetti Effect -->
+    <!-- Confetti -->
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
 
     <script>
@@ -37,6 +37,16 @@
                     },
                     colors: {
                         dark: { bg: '#0f172a', card: '#1e293b', border: '#334155' }
+                    },
+                    animation: {
+                        'flip': 'flip 0.6s',
+                        'float': 'float 3s ease-in-out infinite',
+                    },
+                    keyframes: {
+                        float: {
+                            '0%, 100%': { transform: 'translateY(0)' },
+                            '50%': { transform: 'translateY(-5px)' },
+                        }
                     }
                 }
             }
@@ -70,14 +80,16 @@
         .calendar-day:hover:not(.empty) { background-color: rgba(99, 102, 241, 0.1); }
         .calendar-day.has-history { font-weight: bold; color: white; }
         
+        /* Floating Help Panel Animation */
+        #helpPanel { transition: opacity 0.3s ease, transform 0.3s ease; }
+        
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
         .dark ::-webkit-scrollbar-thumb { background: #475569; }
         
-        @keyframes pulse-glow { 0%, 100% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.4); } 50% { box-shadow: 0 0 0 20px rgba(99, 102, 241, 0); } }
-        .level-up-anim { animation: pulse-glow 1.5s infinite; }
-        .achievement-locked { filter: grayscale(100%); opacity: 0.5; }
+        /* Image Upload Preview */
+        .avatar-preview { object-fit: cover; }
     </style>
 </head>
 <body class="bg-slate-50 text-slate-900 dark:bg-dark-bg dark:text-slate-50 min-h-screen selection:bg-indigo-500 selection:text-white transition-colors duration-300 overflow-x-hidden">
@@ -87,7 +99,7 @@
         const { useState, useEffect, useMemo, useRef } = React;
 
         // --- Config & Constants ---
-        const STORAGE_KEY = 'studyScheduleData_V9_0_Gamified'; 
+        const STORAGE_KEY = 'studyScheduleData_V15_Photo_Notes'; 
         
         const THEMES = {
             indigo: { name: 'Indigo', class: 'text-indigo-600', bg: 'bg-indigo-600', border: 'border-indigo-500', from: 'from-indigo-600', to: 'to-purple-600' },
@@ -97,13 +109,19 @@
             sky: { name: 'Céu', class: 'text-sky-600', bg: 'bg-sky-600', border: 'border-sky-500', from: 'from-sky-500', to: 'to-blue-600' },
         };
 
+        // Achievement Definitions (Expanded)
         const ACHIEVEMENTS_LIST = [
-            { id: 'first_step', title: 'Primeiros Passos', desc: 'Conclua sua primeira tarefa.', icon: 'footprints', xp: 50 },
-            { id: 'essay_writer', title: 'Escritor', desc: 'Escreva 3 redações.', icon: 'pen-tool', xp: 150, req: (data) => data.essays.length >= 3 },
-            { id: 'marathon', title: 'Maratonista', desc: 'Estude mais de 5h numa semana.', icon: 'timer', xp: 300, req: (data) => data.weekMinutes >= 300 },
-            { id: 'simulated', title: 'Simulado', desc: 'Faça seu primeiro simulado.', icon: 'file-check', xp: 100, req: (data) => data.simulados.length >= 1 },
-            { id: 'streak_3', title: 'Em Chamas', desc: 'Mantenha uma sequência de 3 dias.', icon: 'flame', xp: 200, req: (data) => data.streak >= 3 },
-            { id: 'master', title: 'Mestre', desc: 'Alcance o nível 10.', icon: 'crown', xp: 1000, req: (data) => data.level >= 10 },
+            { id: 'first_step', title: 'Primeiros Passos', desc: 'Ganhe seus primeiros 50 XP.', icon: 'footprints', xp: 50, gradient: 'linear-gradient(135deg, #60a5fa, #3b82f6)', req: (d) => d.xp >= 50 },
+            { id: 'essay_novice', title: 'Escritor Iniciante', desc: 'Escreva 1 redação.', icon: 'pen-tool', xp: 100, gradient: 'linear-gradient(135deg, #f472b6, #db2777)', req: (d) => d.essays.length >= 1 },
+            { id: 'simulado_rookie', title: 'Primeiro Teste', desc: 'Complete 1 simulado.', icon: 'clipboard-list', xp: 150, gradient: 'linear-gradient(135deg, #a78bfa, #7c3aed)', req: (d) => d.simulados.length >= 1 },
+            { id: 'streak_3', title: 'Em Chamas', desc: 'Mantenha uma sequência de 3 dias.', icon: 'flame', xp: 200, gradient: 'linear-gradient(135deg, #fb923c, #ea580c)', req: (d) => d.streak >= 3 },
+            { id: 'hours_10', title: 'Maratonista', desc: 'Acumule 10h de estudo.', icon: 'clock', xp: 300, gradient: 'linear-gradient(135deg, #34d399, #059669)', req: (d) => d.totalMinutes >= 600 },
+            { id: 'level_5', title: 'Veterano', desc: 'Alcance o nível 5.', icon: 'star', xp: 500, gradient: 'linear-gradient(135deg, #fbbf24, #d97706)', req: (d) => d.level >= 5 },
+            { id: 'early_bird', title: 'Madrugador', desc: 'Estude antes das 8h da manhã.', icon: 'sunrise', xp: 250, gradient: 'linear-gradient(135deg, #fde047, #eab308)', req: (d) => { const h = new Date().getHours(); return h < 8 && d.todayMinutes > 0; } },
+            { id: 'night_owl', title: 'Corujão', desc: 'Estude depois das 22h.', icon: 'moon', xp: 250, gradient: 'linear-gradient(135deg, #6366f1, #312e81)', req: (d) => { const h = new Date().getHours(); return h >= 22 && d.todayMinutes > 0; } },
+            { id: 'error_tracker', title: 'Autocrítico', desc: 'Registre 5 erros no caderno.', icon: 'book-x', xp: 300, gradient: 'linear-gradient(135deg, #ef4444, #991b1b)', req: (d) => d.errorNotes.length >= 5 },
+            { id: 'weekend_warrior', title: 'Guerreiro de FDS', desc: 'Estude no Sábado ou Domingo.', icon: 'sword', xp: 400, gradient: 'linear-gradient(135deg, #94a3b8, #475569)', req: (d) => { const day = new Date().getDay(); return (day === 0 || day === 6) && d.todayMinutes > 0; } },
+            { id: 'streak_30', title: 'Lendário', desc: '30 Dias seguidos de estudo!', icon: 'crown', xp: 5000, gradient: 'linear-gradient(135deg, #facc15, #ca8a04)', req: (d) => d.streak >= 30 }
         ];
 
         const COLORS = {
@@ -137,13 +155,25 @@
 
         // --- Components ---
         
-        const Modal = ({ isOpen, onClose, title, children }) => {
+        const XpToast = ({ xp, visible, onEnd }) => {
+            if (!visible) return null;
+            return (
+                <div className="fixed bottom-32 right-6 z-50 animate-[slideUp_2s_ease-out_forwards] pointer-events-none" onAnimationEnd={onEnd}>
+                    <div className="bg-slate-900 text-white px-4 py-2 rounded-full shadow-2xl font-bold flex items-center gap-2 border-2 border-yellow-400 text-yellow-400">
+                        <span>+{xp} XP</span>
+                        <i data-lucide="star" className="w-4 h-4 fill-yellow-400"></i>
+                    </div>
+                </div>
+            );
+        };
+
+        const Modal = ({ isOpen, onClose, title, children, className }) => {
             if (!isOpen) return null;
             return (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-[fadeIn_0.2s_ease-out] overflow-hidden">
                     <div className="absolute inset-0" onClick={onClose}></div>
-                    <div className="relative bg-white dark:bg-slate-900 w-[95%] md:w-full max-w-md md:max-w-2xl rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-700 flex flex-col max-h-[85vh]">
-                        <div className="flex justify-between items-center p-6 border-b border-slate-100 dark:border-slate-800">
+                    <div className={`relative bg-white dark:bg-slate-900 w-[95%] md:w-full max-w-md md:max-w-2xl rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-700 flex flex-col max-h-[85vh] ${className}`}>
+                        <div className="flex justify-between items-center p-6 border-b border-slate-100 dark:border-slate-800 shrink-0">
                             <h3 className="text-xl md:text-2xl font-display font-bold text-slate-900 dark:text-white truncate pr-4">{title}</h3>
                             <button onClick={onClose} className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition text-slate-500 shrink-0">
                                 <i data-lucide="x" className="w-6 h-6"></i>
@@ -161,11 +191,12 @@
             if (!isOpen) return null;
             return (
                 <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-[fadeIn_0.5s_ease-out]">
-                     <div className="text-center relative">
+                     <div className="text-center relative bg-white dark:bg-slate-900 p-12 rounded-3xl border-2 border-yellow-400 shadow-[0_0_50px_rgba(250,204,21,0.5)] max-w-sm w-full">
                         <div className="text-6xl mb-4 animate-bounce">🏆</div>
-                        <h2 className="text-4xl md:text-6xl font-black text-yellow-400 drop-shadow-lg mb-2">LEVEL UP!</h2>
-                        <p className="text-white text-xl font-bold">Você alcançou o Nível {level}</p>
-                        <button onClick={onClose} className="mt-8 px-8 py-3 bg-white text-indigo-900 rounded-full font-bold shadow-xl hover:scale-105 transition">CONTINUAR</button>
+                        <h2 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-orange-500 mb-2">LEVEL UP!</h2>
+                        <p className="text-slate-600 dark:text-slate-300 text-xl font-bold">Você alcançou o Nível {level}</p>
+                        <p className="text-sm text-slate-400 mt-2">Continue estudando para desbloquear mais conquistas!</p>
+                        <button onClick={onClose} className="mt-8 w-full py-3 bg-gradient-to-r from-yellow-400 to-orange-500 text-white rounded-xl font-bold shadow-xl hover:scale-105 transition">CONTINUAR</button>
                      </div>
                 </div>
             );
@@ -176,16 +207,16 @@
             const [schedule, setSchedule] = useState([]);
             const [essays, setEssays] = useState([]);
             const [simulados, setSimulados] = useState([]); 
+            const [errorNotes, setErrorNotes] = useState([]); // Renamed from errorCards
             const [history, setHistory] = useState([]);
             const [weights, setWeights] = useState({});
             const [grandTotalHours, setGrandTotalHours] = useState(20);
             const [isDark, setIsDark] = useState(false);
             
-            // User Profile & Gamification
-            const [userProfile, setUserProfile] = useState({ name: 'Estudante', avatar: '🎓', theme: 'indigo', streak: 0, lastStudyDate: null });
+            const [userProfile, setUserProfile] = useState({ name: 'Estudante', avatar: '🎓', photo: null, theme: 'indigo', streak: 0, lastStudyDate: null, pomoCompleted: 0, totalMinutesStudied: 0 });
             const [xp, setXp] = useState(0); 
             const [achievements, setAchievements] = useState([]);
-            const [showLevelUp, setShowLevelUp] = useState(false);
+            const [xpToast, setXpToast] = useState({ visible: false, amount: 0 });
             
             // UI State
             const [activeModal, setActiveModal] = useState(null);
@@ -193,27 +224,28 @@
             const [addTaskDayIndex, setAddTaskDayIndex] = useState(null);
             const [currentCalendarDate, setCurrentCalendarDate] = useState(new Date());
             const [showHelp, setShowHelp] = useState(false);
-            const [expandedSimuladoGroup, setExpandedSimuladoGroup] = useState(null); 
+            const [showLevelUp, setShowLevelUp] = useState(false);
+            const [expandedSimuladoGroup, setExpandedSimuladoGroup] = useState(null);
             
-            // Pomodoro State
-            const [pomoTime, setPomoTime] = useState(25 * 60);
-            const [pomoActive, setPomoActive] = useState(false);
-            const [pomoMode, setPomoMode] = useState('focus');
-
             // Forms
             const [newTaskForm, setNewTaskForm] = useState({ subject: '', hours: 1, minutes: 0 });
             const [essayForm, setEssayForm] = useState({ theme: '', genre: '', grade: '' });
             const [simuladoForm, setSimuladoForm] = useState({ type: 'subject', subjectName: '', contentTopic: '', examName: '', totalQ: '', correctQ: '', notes: '' });
+            const [editTaskForm, setEditTaskForm] = useState({ subject: '', plannedH: 0, plannedM: 0, studiedH: 0, studiedM: 0 });
+            const [errorNoteForm, setErrorNoteForm] = useState({ subject: '', title: '', description: '' });
             const [profileForm, setProfileForm] = useState({ name: '', avatar: '' });
+            
+            // Pomodoro
+            const [pomoTime, setPomoTime] = useState(25 * 60);
+            const [pomoActive, setPomoActive] = useState(false);
+            const [pomoMode, setPomoMode] = useState('focus');
 
-            // --- Initialization ---
+            // --- Init ---
             useEffect(() => {
                 const init = () => {
                     const saved = localStorage.getItem(STORAGE_KEY);
                     let data = null;
-                    if(saved) {
-                        try { data = JSON.parse(saved); } catch(e){ console.error("Data error"); }
-                    }
+                    if(saved) { try { data = JSON.parse(saved); } catch(e){} }
                     
                     const defaultSchedule = [
                         { day: "Segunda-feira", tasks: [{ id: 1, subject: "Física", planned: 240, studied: 0 }, { id: 2, subject: "Matemática", planned: 160, studied: 0 }, { id: 3, subject: "Química", planned: 270, studied: 0 }] },
@@ -221,29 +253,26 @@
                         { day: "Quarta-feira", tasks: [{ id: 7, subject: "Geografia", planned: 240, studied: 0 }, { id: 8, subject: "Redação", planned: 180, studied: 0 }, { id: 9, subject: "Filosofia", planned: 180, studied: 0 }] },
                         { day: "Quinta-feira", tasks: [{ id: 10, subject: "Física", planned: 240, studied: 0 }, { id: 11, subject: "Matemática", planned: 160, studied: 0 }, { id: 12, subject: "Biologia", planned: 270, studied: 0 }] },
                         { day: "Sexta-feira", tasks: [{ id: 13, subject: "Química", planned: 270, studied: 0 }, { id: 14, subject: "Inglês", planned: 60, studied: 0 }, { id: 15, subject: "Sociologia", planned: 60, studied: 0 }] },
-                        { day: "Sábado", tasks: [{ id: 16, subject: "Física", planned: 240, studied: 0 }, { id: 17, subject: "Matemática", planned: 160, studied: 0 }, { id: 18, subject: "Revisão", planned: 120, studied: 0 }] }
+                        { day: "Sábado", tasks: [{ id: 16, subject: "Física", planned: 240, studied: 0 }, { id: 17, subject: "Matemática", planned: 160, studied: 0 }, { id: 18, subject: "Revisão", planned: 120, studied: 0 }] },
+                        { day: "Domingo", tasks: [] }
                     ];
 
                     if(data && data.schedule && Array.isArray(data.schedule) && data.schedule.length > 0) {
-                        const validSchedule = data.schedule.map((day, i) => ({
-                            day: day.day || defaultSchedule[i].day,
-                            tasks: Array.isArray(day.tasks) ? day.tasks.map(t => ({...t, id: t.id || Math.random()})) : []
-                        }));
-                        setSchedule(validSchedule);
+                        setSchedule(data.schedule);
                         setEssays(data.essays || []);
                         setSimulados(data.simulados || []); 
+                        setErrorNotes(data.errorNotes || []); 
                         setHistory(data.history || []);
                         setWeights(data.weights || {});
                         setXp(data.xp || 0);
                         setAchievements(data.achievements || []);
-                        setUserProfile(data.userProfile || { name: 'Estudante', avatar: '🎓', theme: 'indigo', streak: 0, lastStudyDate: null });
+                        setUserProfile(data.userProfile || { name: 'Estudante', avatar: '🎓', photo: null, theme: 'indigo', streak: 0, lastStudyDate: null, pomoCompleted: 0, totalMinutesStudied: 0 });
                     } else {
                         setSchedule(defaultSchedule);
                         const w = {};
                         defaultSchedule.forEach(d => d.tasks.forEach(t => w[t.subject] = 1));
                         setWeights(w);
                     }
-
                     if (window.matchMedia('(prefers-color-scheme: dark)').matches) setIsDark(true);
                 };
                 init();
@@ -251,59 +280,49 @@
 
             useEffect(() => {
                 if(schedule.length > 0) {
-                    localStorage.setItem(STORAGE_KEY, JSON.stringify({ schedule, essays, simulados, history, weights, xp, achievements, userProfile }));
+                    localStorage.setItem(STORAGE_KEY, JSON.stringify({ schedule, essays, simulados, errorNotes, history, weights, xp, achievements, userProfile }));
                 }
                 document.documentElement.classList.toggle('dark', isDark);
                 if(window.lucide) window.lucide.createIcons();
-            }, [schedule, essays, simulados, history, weights, xp, isDark, activeModal, expandedSimuladoGroup, achievements, userProfile]);
+            }, [schedule, essays, simulados, errorNotes, history, weights, xp, isDark, activeModal, userProfile, achievements]);
 
-            // --- Gamification Logic ---
-            const getLevel = (points) => Math.floor(Math.sqrt(points / 100)) + 1; // Formula: XP = 100 * (Level-1)^2 roughly
+            // --- Logic ---
+            const awardXp = (amount) => { setXp(p => p + amount); setXpToast({ visible: true, amount }); };
+            const getLevel = (p) => Math.floor(Math.sqrt(p / 100)) + 1;
             
-            // Check for level up
             const prevLevelRef = useRef(1);
             useEffect(() => {
-                const currentLevel = getLevel(xp);
-                if (currentLevel > prevLevelRef.current) {
+                const cl = getLevel(xp);
+                if (cl > prevLevelRef.current && prevLevelRef.current !== 1) {
                     confetti({ particleCount: 200, spread: 100, origin: { y: 0.6 } });
                     setShowLevelUp(true);
-                    new Audio('https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg').play().catch(()=>{});
                 }
-                prevLevelRef.current = currentLevel;
+                prevLevelRef.current = cl;
             }, [xp]);
 
             // Check Achievements
             useEffect(() => {
+                let todayMinutes = 0;
+                schedule.forEach(d => d.tasks.forEach(t => todayMinutes += t.studied));
+                const dataToCheck = { essays, simulados, todayMinutes, totalMinutes: userProfile.totalMinutesStudied + todayMinutes, streak: userProfile.streak, level: getLevel(xp), pomoCompleted: userProfile.pomoCompleted, history, xp, errorNotes };
                 const newUnlocked = [];
-                // Calculate total minutes studied this week for achievement check
-                let weekMinutes = 0;
-                schedule.forEach(d => d.tasks.forEach(t => weekMinutes += t.studied));
-                
-                const dataToCheck = { essays, simulados, weekMinutes, streak: userProfile.streak, level: getLevel(xp) };
-
                 ACHIEVEMENTS_LIST.forEach(ach => {
                     if (!achievements.includes(ach.id)) {
-                        if (ach.req && ach.req(dataToCheck)) {
-                            newUnlocked.push(ach.id);
-                        } else if (ach.id === 'first_step' && weekMinutes > 0) {
-                            newUnlocked.push(ach.id);
-                        }
+                        if (ach.req && ach.req(dataToCheck)) newUnlocked.push(ach.id);
                     }
                 });
-
                 if (newUnlocked.length > 0) {
                     setAchievements([...achievements, ...newUnlocked]);
                     newUnlocked.forEach(id => {
                         const ach = ACHIEVEMENTS_LIST.find(a => a.id === id);
-                        // Bonus XP for achievement
-                        setXp(prev => prev + ach.xp);
-                        alert(`🏆 Conquista Desbloqueada: ${ach.title}! +${ach.xp} XP`);
+                        awardXp(ach.xp);
+                        alert(`🏆 Conquista Desbloqueada: ${ach.title}!`);
+                        confetti({ particleCount: 50, spread: 60, origin: { y: 0.8 } });
                     });
                 }
-            }, [schedule, essays, simulados, xp, userProfile]);
+            }, [schedule, essays, simulados, xp, userProfile, history, errorNotes]);
 
-
-            // --- Pomodoro Logic ---
+            // Pomodoro
             useEffect(() => {
                 let interval = null;
                 if (pomoActive && pomoTime > 0) {
@@ -313,7 +332,8 @@
                     new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg').play().catch(()=>{});
                     if(pomoMode === 'focus') {
                         confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
-                        setXp(prev => prev + 50); 
+                        awardXp(50);
+                        setUserProfile(prev => ({...prev, pomoCompleted: (prev.pomoCompleted || 0) + 1}));
                         alert("Pomodoro concluído! +50 XP");
                     }
                 }
@@ -328,6 +348,53 @@
             };
 
             // --- Handlers ---
+            
+            const openEditTaskModal = (dayIdx, taskIdx, task) => {
+                setSelectedTask({ ...task, dIdx: dayIdx, tIdx: taskIdx });
+                setEditTaskForm({
+                    subject: task.subject,
+                    plannedH: Math.floor(task.planned / 60),
+                    plannedM: task.planned % 60,
+                    studiedH: Math.floor(task.studied / 60),
+                    studiedM: task.studied % 60
+                });
+                setActiveModal('task');
+            };
+
+            const handleSaveTaskEdit = (e) => {
+                e.preventDefault();
+                const newName = editTaskForm.subject;
+                const planned = (parseInt(editTaskForm.plannedH)||0)*60 + (parseInt(editTaskForm.plannedM)||0);
+                const studied = (parseInt(editTaskForm.studiedH)||0)*60 + (parseInt(editTaskForm.studiedM)||0);
+                const { dIdx, tIdx, subject: oldName } = selectedTask;
+
+                const diff = studied - selectedTask.studied;
+                if(diff > 0) {
+                    awardXp(diff);
+                    setUserProfile(prev => ({...prev, totalMinutesStudied: prev.totalMinutesStudied + diff}));
+                    const today = new Date().toDateString();
+                    if (userProfile.lastStudyDate !== today) {
+                        const yesterday = new Date();
+                        yesterday.setDate(yesterday.getDate() - 1);
+                        if (userProfile.lastStudyDate === yesterday.toDateString()) {
+                            setUserProfile(prev => ({ ...prev, streak: prev.streak + 1, lastStudyDate: today }));
+                        } else {
+                            setUserProfile(prev => ({ ...prev, streak: 1, lastStudyDate: today }));
+                        }
+                    }
+                }
+
+                setSchedule(prev => {
+                    const next = [...prev];
+                    next[dIdx].tasks[tIdx] = { ...next[dIdx].tasks[tIdx], subject: newName, planned, studied };
+                    if(newName !== oldName && confirm(`Renomear todas as ocorrências de "${oldName}" para "${newName}"?`)) {
+                         next.forEach(d => d.tasks.forEach(t => { if(t.subject === oldName) t.subject = newName; }));
+                         setWeights(w => { const nw={...w}; if(nw[oldName]){nw[newName]=nw[oldName]; delete nw[oldName]} else{nw[newName]=1} return nw; });
+                    }
+                    return next;
+                });
+                setActiveModal(null);
+            };
 
             const handleProfileUpdate = (e) => {
                 e.preventDefault();
@@ -335,10 +402,19 @@
                 setActiveModal(null);
             };
 
-            const handleThemeChange = (themeKey) => {
-                setUserProfile({...userProfile, theme: themeKey});
+            const handlePhotoUpload = (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onloadend = () => {
+                        setUserProfile(prev => ({ ...prev, photo: reader.result }));
+                    };
+                    reader.readAsDataURL(file);
+                }
             };
 
+            const handleThemeChange = (themeKey) => setUserProfile({...userProfile, theme: themeKey});
+            
             const deleteTask = (dayIndex, taskId) => {
                 if(confirm("Remover esta matéria do dia?")) {
                     setSchedule(prev => prev.map((day, idx) => {
@@ -360,204 +436,92 @@
                 setNewTaskForm({subject:'', hours:1, minutes:0});
             };
 
-            const handleSaveTaskEdit = (e) => {
-                e.preventDefault();
-                const formData = new FormData(e.target);
-                const newName = formData.get('subject');
-                const planned = (parseInt(formData.get('plannedH'))||0)*60 + (parseInt(formData.get('plannedM'))||0);
-                const studied = (parseInt(formData.get('studiedH'))||0)*60 + (parseInt(formData.get('studiedM'))||0);
-                const { dIdx, tIdx, subject: oldName } = selectedTask;
-
-                // Calculate XP Gained from Study
-                const diff = studied - selectedTask.studied;
-                if(diff > 0) {
-                    setXp(prev => prev + diff); // 1 min = 1 XP
-                    
-                    // Streak Logic: Check if studied today
-                    const today = new Date().toDateString();
-                    if (userProfile.lastStudyDate !== today) {
-                        const yesterday = new Date();
-                        yesterday.setDate(yesterday.getDate() - 1);
-                        
-                        if (userProfile.lastStudyDate === yesterday.toDateString()) {
-                            setUserProfile(prev => ({ ...prev, streak: prev.streak + 1, lastStudyDate: today }));
-                        } else {
-                            setUserProfile(prev => ({ ...prev, streak: 1, lastStudyDate: today }));
-                        }
-                    }
-                }
-
-                setSchedule(prev => {
-                    const next = [...prev];
-                    next[dIdx].tasks[tIdx] = { ...next[dIdx].tasks[tIdx], subject: newName, planned, studied };
-                    if(newName !== oldName && confirm(`Renomear todas as ocorrências de "${oldName}" para "${newName}"?`)) {
-                        next.forEach(day => { day.tasks.forEach(t => { if(t.subject === oldName) t.subject = newName; }); });
-                        setWeights(w => { const nw = {...w}; if(nw[oldName]) { nw[newName] = nw[oldName]; delete nw[oldName]; } else { nw[newName] = 1; } return nw; });
-                    }
-                    return next;
-                });
-                setActiveModal(null);
-            };
-
             const distributeHours = () => {
-                const totalMinutes = grandTotalHours * 60;
-                if(totalMinutes <= 0) return;
-                let totalPoints = 0;
-                Object.values(weights).forEach(w => totalPoints += w);
-                if(totalPoints === 0) totalPoints = 1;
-                const minsPerPoint = totalMinutes / totalPoints;
-                const subjectTotals = {};
-                Object.keys(weights).forEach(s => subjectTotals[s] = weights[s] * minsPerPoint);
+                 const totalMinutes = grandTotalHours * 60;
+                 if(totalMinutes <= 0) return;
+                 let totalPoints = 0;
+                 Object.values(weights).forEach(w => totalPoints += w);
+                 if(totalPoints === 0) totalPoints = 1;
+                 const minsPerPoint = totalMinutes / totalPoints;
+                 const subjectTotals = {};
+                 Object.keys(weights).forEach(s => subjectTotals[s] = weights[s] * minsPerPoint);
 
-                setSchedule(prev => prev.map(day => ({
-                    ...day,
-                    tasks: day.tasks.map(task => {
-                        let occurrences = 0;
-                        prev.forEach(d => d.tasks.forEach(tk => { if(tk.subject === t.subject) count++; })); // Correction in logic
-                        schedule.forEach(d => d.tasks.forEach(t => { if(t.subject === task.subject) occurrences++; })); // Fix
-                        if(occurrences === 0) occurrences = 1;
-                        const subjectTotal = subjectTotals[task.subject] || 0;
-                        return { ...task, planned: Math.floor(subjectTotal / occurrences) };
-                    })
-                })));
-                setActiveModal(null);
-                alert("Horas redistribuídas!");
+                 setSchedule(prev => prev.map(day => ({
+                     ...day,
+                     tasks: day.tasks.map(task => {
+                         let occurrences = 0;
+                         prev.forEach(d => d.tasks.forEach(tk => { if(tk.subject === task.subject) occurrences++; }));
+                         if(occurrences === 0) occurrences = 1;
+                         const subjectTotal = subjectTotals[task.subject] || 0;
+                         return { ...task, planned: Math.floor(subjectTotal / occurrences) };
+                     })
+                 })));
+                 setActiveModal(null);
+                 alert("Horas redistribuídas!");
             };
 
             const finishWeek = (note) => {
                 let p = 0, s = 0;
                 schedule.forEach(d => d.tasks.forEach(t => { p += t.planned; s += t.studied; }));
-                const entry = {
-                    id: Date.now(),
-                    dateISO: new Date().toISOString(),
-                    weekRange: "Semana Concluída",
-                    note,
-                    percent: p > 0 ? Math.round((s/p)*100) : 0,
-                    planned: p, studied: s
-                };
+                const entry = { id: Date.now(), dateISO: new Date().toISOString(), weekRange: "Semana Concluída", note, percent: p > 0 ? Math.round((s/p)*100) : 0, planned: p, studied: s };
                 setHistory([entry, ...history]);
                 setSchedule(prev => prev.map(d => ({ ...d, tasks: d.tasks.map(t => ({ ...t, studied: 0 })) })));
                 setActiveModal('history');
                 confetti({ particleCount: 150, spread: 100, origin: { y: 0.6 } });
-                setXp(prev => prev + 200); // Bonus XP for finishing week
+                awardXp(200);
             };
 
             const handleAddEssay = (e) => {
                 e.preventDefault();
                 if(!essayForm.theme || !essayForm.grade) return alert("Preencha tema e nota");
-                setEssays([{
-                    id: Date.now(),
-                    theme: essayForm.theme,
-                    genre: essayForm.genre || 'Geral',
-                    grade: parseInt(essayForm.grade),
-                    date: new Date().toLocaleDateString('pt-BR')
-                }, ...essays]);
+                setEssays([{ id: Date.now(), theme: essayForm.theme, genre: essayForm.genre || 'Geral', grade: parseInt(essayForm.grade), date: new Date().toLocaleDateString('pt-BR') }, ...essays]);
                 setEssayForm({theme:'', genre:'', grade:''});
                 setActiveModal(null);
-                setXp(prev => prev + 50); 
+                awardXp(50);
             };
-            
-            const deleteEssay = (id) => {
-                if(confirm("Apagar redação?")) setEssays(essays.filter(e => e.id !== id));
-            };
+            const deleteEssay = (id) => { if(confirm("Apagar redação?")) setEssays(essays.filter(e => e.id !== id)); };
 
             const handleAddSimulado = (e) => {
                 e.preventDefault();
-                if(!simuladoForm.totalQ || !simuladoForm.correctQ) return alert("Preencha a quantidade de questões e acertos");
-                
+                if(!simuladoForm.totalQ || !simuladoForm.correctQ) return alert("Preencha dados");
                 let title = "", subtitle = "";
-                if(simuladoForm.type === 'subject') {
-                    if(!simuladoForm.subjectName) return alert("Preencha a matéria");
-                    title = simuladoForm.subjectName;
-                    subtitle = simuladoForm.contentTopic || "Conteúdo Geral";
-                } else {
-                    if(!simuladoForm.examName) return alert("Preencha o nome da prova");
-                    title = simuladoForm.examName;
-                    subtitle = simuladoForm.subjectName || "Prova Completa";
-                }
-
+                if(simuladoForm.type === 'subject') { title = simuladoForm.subjectName; subtitle = simuladoForm.contentTopic || "Conteúdo Geral"; } 
+                else { title = simuladoForm.examName; subtitle = simuladoForm.subjectName || "Prova Completa"; }
                 const total = parseInt(simuladoForm.totalQ);
                 const correct = parseInt(simuladoForm.correctQ);
                 const percentage = total > 0 ? Math.round((correct / total) * 100) : 0;
-
-                setSimulados([{
-                    id: Date.now(),
-                    type: simuladoForm.type,
-                    title: title,
-                    subtitle: subtitle,
-                    total: total,
-                    correct: correct,
-                    percentage: percentage,
-                    notes: simuladoForm.notes,
-                    date: new Date().toLocaleDateString('pt-BR')
-                }, ...simulados]);
-
+                setSimulados([{ id: Date.now(), type: simuladoForm.type, title, subtitle, total, correct, percentage, notes: simuladoForm.notes, date: new Date().toLocaleDateString('pt-BR') }, ...simulados]);
                 setSimuladoForm({ type: 'subject', subjectName: '', contentTopic: '', examName: '', totalQ: '', correctQ: '', notes: '' });
                 setActiveModal(null);
-                setXp(prev => prev + 100); 
+                awardXp(100);
                 confetti({ particleCount: 50, spread: 60 });
             };
+            const deleteSimulado = (id) => { if(confirm("Apagar simulado?")) setSimulados(simulados.filter(s => s.id !== id)); };
 
-            const deleteSimulado = (id) => {
-                if(confirm("Apagar simulado?")) setSimulados(simulados.filter(s => s.id !== id));
-            };
-
-            // Drag Handlers
-            const handleDragStart = (e, dIdx, tIdx) => {
-                e.dataTransfer.setData("task", JSON.stringify({ dIdx, tIdx }));
-                e.target.classList.add('opacity-50');
-            };
-            const handleDragEnd = (e) => e.target.classList.remove('opacity-50');
-            const handleDragOver = (e) => e.preventDefault();
-            const handleDrop = (e, targetDIdx) => {
+            const handleAddErrorNote = (e) => {
                 e.preventDefault();
-                const data = e.dataTransfer.getData("task");
-                if(!data) return;
-                const { dIdx, tIdx } = JSON.parse(data);
-                if(dIdx === targetDIdx) return;
-
-                setSchedule(prev => {
-                    const next = prev.map(d => ({...d, tasks: [...d.tasks]}));
-                    const [task] = next[dIdx].tasks.splice(tIdx, 1);
-                    next[targetDIdx].tasks.push(task);
-                    return next;
-                });
+                if(!errorNoteForm.subject || !errorNoteForm.description) return alert("Preencha todos os campos!");
+                setErrorNotes([{ id: Date.now(), ...errorNoteForm, date: new Date().toLocaleDateString('pt-BR') }, ...errorNotes]);
+                setErrorNoteForm({ subject: '', title: '', description: '' });
+                setActiveModal(null);
+                awardXp(20);
             };
+            const deleteErrorNote = (id) => { if(confirm("Remover anotação?")) setErrorNotes(errorNotes.filter(c => c.id !== id)); };
 
-            // Computed
-            const timeBank = useMemo(() => {
-                let p = 0, s = 0;
-                schedule.forEach(d => d.tasks.forEach(t => { p += t.planned; s += t.studied; }));
-                return s - p;
-            }, [schedule]);
-
+            // --- Render Helpers ---
+            const activeTheme = THEMES[userProfile.theme] || THEMES.indigo;
+            const currentLevel = getLevel(xp);
+            const nextLevelXp = 100 * Math.pow(currentLevel, 2);
+            const prevLevelXp = 100 * Math.pow(currentLevel - 1, 2);
+            const levelProgress = Math.min(100, Math.max(0, ((xp - prevLevelXp) / (nextLevelXp - prevLevelXp)) * 100)) || 0;
+            const timeBank = useMemo(() => { let p=0,s=0; schedule.forEach(d=>d.tasks.forEach(t=>{p+=t.planned;s+=t.studied})); return s-p; }, [schedule]);
             const pendingSubjects = useMemo(() => {
-                const totals = {};
-                schedule.forEach(d => d.tasks.forEach(t => {
-                    if(!totals[t.subject]) totals[t.subject] = { remaining: 0, color: getColor(t.subject) };
-                    totals[t.subject].remaining += (t.planned - t.studied);
-                }));
-                return Object.entries(totals)
-                    .map(([s, v]) => ({ subject: s, ...v }))
-                    .filter(x => x.remaining > 0)
-                    .sort((a,b) => b.remaining - a.remaining);
+                const totals={};
+                schedule.forEach(d=>d.tasks.forEach(t=>{ if(!totals[t.subject])totals[t.subject]={r:0,c:getColor(t.subject)}; totals[t.subject].r+=(t.planned-t.studied); }));
+                return Object.entries(totals).map(([s,v])=>({subject:s,color:v.c,remaining:v.r})).filter(x=>x.remaining>0).sort((a,b)=>b.remaining-a.remaining);
             }, [schedule]);
-
-            const getCalendarDays = () => {
-                const y = currentCalendarDate.getFullYear();
-                const m = currentCalendarDate.getMonth();
-                const first = new Date(y, m, 1).getDay();
-                const daysInMonth = new Date(y, m+1, 0).getDate();
-                const days = [];
-                for(let i=0; i<first; i++) days.push(null);
-                for(let i=1; i<=daysInMonth; i++) days.push(i);
-                return days;
-            };
-
             const essayAvg = essays.length > 0 ? Math.round(essays.reduce((a,b)=>a+b.grade,0)/essays.length) : 0;
             const simuladoAvg = simulados.length > 0 ? Math.round(simulados.reduce((a,b)=>a+b.percentage,0)/simulados.length) : 0;
-
-            // Group Simulados
             const groupedSimulados = useMemo(() => {
                 const groups = {};
                 simulados.forEach(sim => {
@@ -570,55 +534,75 @@
                 return Object.values(groups).map(g => ({...g, avg: Math.round(g.totalPercent / g.count)}));
             }, [simulados]);
 
-            // Active Theme Color
-            const activeTheme = THEMES[userProfile.theme] || THEMES.indigo;
+            // Drag Helpers
+            const handleDragStart = (e, dIdx, tIdx) => { e.dataTransfer.setData("task", JSON.stringify({ dIdx, tIdx })); e.currentTarget.classList.add('opacity-50'); };
+            const handleDragEnd = (e) => e.target.classList.remove('opacity-50');
+            const handleDragOver = (e) => e.preventDefault();
+            const handleDrop = (e, targetDIdx) => {
+                e.preventDefault();
+                const data = e.dataTransfer.getData("task");
+                if(!data) return;
+                const { dIdx, tIdx } = JSON.parse(data);
+                if(dIdx === targetDIdx) return;
+                setSchedule(prev => {
+                    const next = prev.map(d => ({...d, tasks: [...d.tasks]}));
+                    const [task] = next[dIdx].tasks.splice(tIdx, 1);
+                    next[targetDIdx].tasks.push(task);
+                    return next;
+                });
+            };
+            const getCalendarDays = () => {
+                const y = currentCalendarDate.getFullYear();
+                const m = currentCalendarDate.getMonth();
+                const first = new Date(y, m, 1).getDay();
+                const daysInMonth = new Date(y, m+1, 0).getDate();
+                const days = [];
+                for(let i=0; i<first; i++) days.push(null);
+                for(let i=1; i<=daysInMonth; i++) days.push(i);
+                return days;
+            };
+            const changeMonth = (offset) => setCurrentCalendarDate(new Date(currentCalendarDate.setMonth(currentCalendarDate.getMonth() + offset)));
 
-            // Gamification Calcs
-            const currentLevel = getLevel(xp);
-            const nextLevelXp = 100 * Math.pow(currentLevel, 2); // XP required for current level cap (approx)
-            const prevLevelXp = 100 * Math.pow(currentLevel - 1, 2);
-            // Calculate progress for bar (current XP within current level range)
-            // Simple linear calc for bar:
-            const levelProgress = Math.min(100, Math.max(0, ((xp - prevLevelXp) / (nextLevelXp - prevLevelXp)) * 100)) || 0;
-
-
-            // --- Render ---
             return (
                 <div className={`container mx-auto px-4 py-8 md:py-12 max-w-7xl pb-32 ${activeTheme.class}`}>
                     
                     <LevelUpModal isOpen={showLevelUp} onClose={() => setShowLevelUp(false)} level={currentLevel} />
+                    <XpToast xp={xpToast.amount} visible={xpToast.visible} onEnd={() => setXpToast({ ...xpToast, visible: false })} />
 
-                    {/* Header Responsive */}
+                    {/* Header */}
                     <header className="text-center mb-10 md:mb-16">
                         <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
-                             {/* Profile & Level */}
+                             {/* Profile */}
                              <button onClick={() => { setProfileForm({name: userProfile.name, avatar: userProfile.avatar}); setActiveModal('profile'); }} 
-                                className="flex items-center gap-3 bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm px-5 py-2.5 rounded-2xl shadow-sm border border-white/50 dark:border-slate-700/50 w-full md:w-auto justify-center md:justify-start hover:scale-105 transition cursor-pointer">
-                                 <div className="text-2xl">{userProfile.avatar}</div>
+                                className="flex items-center gap-3 bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm px-5 py-2.5 rounded-2xl shadow-sm border border-white/50 dark:border-slate-700/50 w-full md:w-auto justify-center md:justify-start hover:scale-105 transition cursor-pointer group">
+                                 <div className="w-12 h-12 rounded-full bg-indigo-100 dark:bg-indigo-900/30 overflow-hidden flex items-center justify-center text-2xl shadow-inner">
+                                     {userProfile.photo ? <img src={userProfile.photo} alt="Avatar" className="w-full h-full object-cover" /> : userProfile.avatar}
+                                 </div>
                                  <div className="text-left flex-1">
-                                     <div className="flex justify-between items-center mb-1 gap-4">
+                                     <div className="flex justify-between items-baseline mb-1 gap-4">
                                          <span className="text-sm font-bold text-slate-800 dark:text-white">{userProfile.name}</span>
                                          <span className={`text-[10px] font-bold ${activeTheme.class}`}>{Math.round(xp)} XP</span>
                                      </div>
-                                     <div className="flex items-center gap-2">
-                                         <div className="w-24 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
-                                             <div className={`h-full bg-gradient-to-r ${activeTheme.from} ${activeTheme.to} transition-all duration-500`} style={{width: `${levelProgress}%`}}></div>
-                                         </div>
-                                         <span className="text-[10px] text-slate-400 font-bold">Lvl {currentLevel}</span>
+                                     <div className="w-24 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                                         <div className={`h-full bg-gradient-to-r ${activeTheme.from} ${activeTheme.to} transition-all duration-500`} style={{width: `${levelProgress}%`}}></div>
                                      </div>
+                                     <span className="text-[10px] text-slate-400 font-bold">Nível {currentLevel}</span>
                                  </div>
-                                 {/* Streak Badge */}
+                                 {/* Streak */}
                                  {userProfile.streak > 0 && (
-                                     <div className="ml-2 flex flex-col items-center bg-orange-100 dark:bg-orange-900/30 px-2 py-1 rounded-lg">
+                                     <div className="ml-2 flex flex-col items-center bg-orange-100 dark:bg-orange-900/30 px-2 py-1 rounded-lg animate-pulse">
                                          <span className="text-lg">🔥</span>
                                          <span className="text-[10px] font-bold text-orange-600 dark:text-orange-400">{userProfile.streak}</span>
                                      </div>
                                  )}
                              </button>
                              
-                             <div className="flex gap-2 w-full md:w-auto justify-center">
-                                 <button onClick={() => setActiveModal('achievements')} className={`flex-1 md:flex-none justify-center bg-yellow-400 hover:bg-yellow-500 text-yellow-900 px-5 py-2.5 rounded-xl font-bold text-sm shadow-lg transition flex items-center gap-2 transform hover:-translate-y-0.5`}>
-                                    <i data-lucide="medal" className="w-4 h-4"></i> <span className="hidden sm:inline">Conquistas</span>
+                             <div className="flex gap-2 w-full md:w-auto justify-center flex-wrap">
+                                 <button onClick={() => setActiveModal('achievements')} className={`flex-1 md:flex-none justify-center bg-white dark:bg-slate-800 text-slate-700 dark:text-white px-4 py-2.5 rounded-xl font-bold text-sm shadow-sm border border-slate-200 dark:border-slate-700 hover:border-yellow-400 transition hover:-translate-y-0.5 flex items-center gap-2`}>
+                                    <i data-lucide="medal" className="w-4 h-4 text-yellow-500"></i> <span className="hidden sm:inline">Conquistas</span>
+                                </button>
+                                <button onClick={() => setActiveModal('errors')} className="flex-1 md:flex-none justify-center bg-white dark:bg-slate-800 text-slate-700 dark:text-white px-4 py-2.5 rounded-xl font-bold text-sm shadow-sm border border-slate-200 hover:border-rose-400 transition flex items-center gap-2">
+                                    <i data-lucide="book-x" className="w-4 h-4 text-rose-500"></i> <span className="hidden sm:inline">Erros</span>
                                 </button>
                                 <button onClick={() => setActiveModal('pomodoro')} className={`flex-1 md:flex-none justify-center ${activeTheme.bg} text-white px-5 py-2.5 rounded-xl font-bold text-sm shadow-lg transition flex items-center gap-2 transform hover:-translate-y-0.5 opacity-90 hover:opacity-100`}>
                                     <i data-lucide="timer" className="w-4 h-4"></i> <span className="hidden sm:inline">Foco</span>
@@ -634,7 +618,7 @@
                         </h1>
                     </header>
 
-                    {/* Time Bank Responsive */}
+                    {/* Time Bank */}
                     <div className="glass-card rounded-[2rem] p-6 md:p-8 text-center mb-16 transform hover:scale-[1.01] transition duration-500">
                         <h2 className="text-xs md:text-sm font-bold text-slate-400 uppercase tracking-widest mb-2">Saldo Semanal</h2>
                         <div className={`text-5xl md:text-7xl font-display font-black tracking-tighter ${timeBank >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
@@ -643,7 +627,7 @@
                         </div>
                     </div>
 
-                    {/* Schedule Grid Responsive */}
+                    {/* Schedule Grid */}
                     <main className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 md:gap-8">
                         {schedule.map((day, dIdx) => (
                             <div key={dIdx} 
@@ -654,66 +638,58 @@
                                     <h2 className="text-xl md:text-2xl font-bold text-slate-800 dark:text-white">{day.day}</h2>
                                     <span className={`bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-xs font-bold px-2 py-1 rounded-lg`}>{day.tasks.length}</span>
                                 </div>
-                                
                                 <div className="space-y-3 flex-grow">
                                     {day.tasks.map((task, tIdx) => {
                                         const color = getColor(task.subject);
                                         const isDone = task.planned > 0 && task.studied >= task.planned;
                                         return (
                                             <div key={task.id} 
-                                                 draggable onDragStart={(e) => handleDragStart(e, dIdx, tIdx)} onDragEnd={handleDragEnd}
-                                                 onClick={() => { setSelectedTask({ ...task, dIdx, tIdx }); setActiveModal('task'); }}
+                                                 draggable onDragStart={(e) => handleDragStart(e, dIdx, tIdx)} onDragEnd={(e) => e.target.classList.remove('opacity-50')}
+                                                 onClick={() => openEditTaskModal(dIdx, tIdx, task)}
                                                  className={`group relative bg-white dark:bg-slate-800/50 p-4 rounded-2xl border border-transparent hover:border-indigo-200 dark:hover:border-slate-600 shadow-sm hover:shadow-md transition-all cursor-pointer flex items-center gap-4 overflow-hidden ${isDone ? 'opacity-75' : ''}`}>
                                                 <div className={`w-1.5 absolute left-0 top-0 bottom-0 ${isDone ? 'bg-emerald-500' : 'bg-slate-200 dark:bg-slate-700'}`}></div>
-                                                <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0" style={{backgroundColor: color}}>
+                                                <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0 shadow-sm" style={{backgroundColor: color}}>
                                                     {task.subject.charAt(0)}
                                                 </div>
                                                 <div className="flex-1 min-w-0">
                                                     <h4 className="font-bold text-slate-800 dark:text-slate-100 truncate text-sm md:text-base">{task.subject}</h4>
                                                     <div className="flex justify-between text-xs text-slate-500 mt-1">
                                                         <span>Meta: {formatTime(task.planned)}</span>
-                                                        {isDone && <span className="text-emerald-500 font-bold">Feito! +XP</span>}
+                                                        {isDone && <span className="text-emerald-500 font-bold flex items-center gap-1"><i data-lucide="check" className="w-3 h-3"></i> Feito!</span>}
                                                     </div>
                                                 </div>
-                                                <button 
-                                                    onClick={(e) => { e.stopPropagation(); deleteTask(dIdx, task.id); }}
-                                                    className="delete-btn p-2 text-slate-300 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/30 rounded-lg transition md:opacity-0 md:group-hover:opacity-100 z-10"
-                                                >
-                                                    <i data-lucide="trash-2" className="w-4 h-4"></i>
-                                                </button>
+                                                <button onClick={(e) => { e.stopPropagation(); deleteTask(dIdx, task.id); }} className="delete-btn p-2 text-slate-300 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/30 rounded-lg transition md:opacity-0 md:group-hover:opacity-100 z-10"><i data-lucide="trash-2" className="w-4 h-4"></i></button>
                                             </div>
                                         );
                                     })}
                                     {day.tasks.length === 0 && <div className="h-24 flex items-center justify-center border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl text-slate-400 text-xs font-bold uppercase tracking-widest opacity-50">Vazio</div>}
                                 </div>
-                                <button onClick={() => { setAddTaskDayIndex(dIdx); setActiveModal('add_task'); }} className={`mt-4 w-full py-3 rounded-xl border-2 border-dashed border-slate-200 dark:border-slate-700 text-slate-400 hover:text-indigo-500 font-bold hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition flex items-center justify-center gap-2`}>
-                                    <i data-lucide="plus" className="w-5 h-5"></i>
-                                </button>
+                                <button onClick={() => { setAddTaskDayIndex(dIdx); setActiveModal('add_task'); }} className={`mt-4 w-full py-3 rounded-xl border-2 border-dashed border-slate-200 dark:border-slate-700 text-slate-400 hover:text-indigo-500 font-bold hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition flex items-center justify-center gap-2`}><i data-lucide="plus" className="w-5 h-5"></i></button>
                             </div>
                         ))}
                     </main>
 
-                    {/* Pendências & Redações */}
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-12">
-                        {/* Pendências */}
-                        <div className="glass-card rounded-[2rem] p-6 md:p-8 border-t-4 border-rose-500 h-fit">
-                             <div className="flex items-center justify-between mb-6 pb-4 border-b border-slate-200/60 dark:border-slate-700/60">
-                                <h2 className="text-2xl md:text-3xl font-bold text-slate-800 dark:text-white">Pendências</h2>
-                                <span className="text-[10px] md:text-xs font-bold bg-rose-100 dark:bg-rose-500/20 text-rose-600 dark:text-rose-300 px-3 py-1 rounded-full uppercase tracking-widest">Atenção</span>
-                            </div>
-                            <div className="space-y-3">
-                                {pendingSubjects.length === 0 ? <div className="text-center text-emerald-500 font-bold py-8">Parabéns! Tudo completo. 🎉</div> : pendingSubjects.map((item, i) => (
-                                    <div key={i} className="flex justify-between items-center p-4 bg-white dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-1.5 h-8 rounded-full" style={{backgroundColor: item.color}}></div>
-                                            <h4 className="font-bold text-slate-700 dark:text-white text-sm md:text-base">{item.subject}</h4>
-                                        </div>
-                                        <span className={`font-black ${activeTheme.class}`}>{formatTime(item.remaining)}</span>
-                                    </div>
-                                ))}
-                             </div>
+                    {/* Pendências */}
+                    <div className="glass-card rounded-[2rem] p-6 md:p-8 border-t-4 border-rose-500 h-fit mt-12">
+                         <div className="flex items-center justify-between mb-6 pb-4 border-b border-slate-200/60 dark:border-slate-700/60">
+                            <h2 className="text-2xl md:text-3xl font-bold text-slate-800 dark:text-white">Pendências</h2>
+                            <span className="text-[10px] md:text-xs font-bold bg-rose-100 dark:bg-rose-500/20 text-rose-600 dark:text-rose-300 px-3 py-1 rounded-full uppercase tracking-widest">Atenção</span>
                         </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {pendingSubjects.length === 0 ? <div className="col-span-full text-center text-emerald-500 font-bold py-8 flex flex-col items-center gap-2"><i data-lucide="party-popper" className="w-8 h-8"></i>Parabéns! Tudo completo.</div> : pendingSubjects.map((item, i) => (
+                                <div key={i} className="flex justify-between items-center p-4 bg-white dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-1.5 h-8 rounded-full" style={{backgroundColor: item.color}}></div>
+                                        <h4 className="font-bold text-slate-700 dark:text-white text-sm md:text-base">{item.subject}</h4>
+                                    </div>
+                                    <span className={`font-black ${activeTheme.class}`}>{formatTime(item.remaining)}</span>
+                                </div>
+                            ))}
+                         </div>
+                    </div>
 
+                    {/* Redações & Simulados Grid */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-12">
                         {/* Redações */}
                         <div className={`glass-card rounded-[2rem] p-6 md:p-8 border-t-4 ${activeTheme.border} h-fit`}>
                             <div className="flex justify-between items-center mb-6">
@@ -735,81 +711,67 @@
                                         </div>
                                         <div className="flex items-center gap-3 shrink-0">
                                             <span className={`text-lg font-black ${essay.grade >= 900 ? 'text-emerald-500' : 'text-indigo-600'}`}>{essay.grade}</span>
-                                            <button onClick={() => deleteEssay(essay.id)} className="text-slate-300 hover:text-rose-500"><i data-lucide="trash-2" className="w-4 h-4"></i></button>
+                                            <button onClick={() => deleteEssay(essay.id)} className="text-slate-300 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition"><i data-lucide="trash-2" className="w-3 h-3"></i></button>
                                         </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                         {/* Simulados */}
+                         <div className="glass-card rounded-[2rem] p-6 md:p-8 border-t-4 border-purple-500 h-fit">
+                            <div className="flex justify-between items-center mb-6">
+                                <div>
+                                    <h3 className="text-2xl md:text-3xl font-bold text-slate-800 dark:text-white">Simulados</h3>
+                                    <span className="text-xs text-purple-500 font-bold block mt-1">Média Geral: {simuladoAvg}%</span>
+                                </div>
+                                <button onClick={() => setActiveModal('simulado')} className="bg-slate-900 dark:bg-white text-white dark:text-slate-900 px-4 py-2 rounded-xl font-bold text-xs shadow-lg hover:scale-105 transition flex items-center gap-2">
+                                    <i data-lucide="clipboard-list" className="w-3 h-3"></i> Novo
+                                </button>
+                            </div>
+                            <div className="space-y-4">
+                                {simulados.length === 0 && <p className="text-slate-400 text-center py-6 italic">Nenhum simulado registrado.</p>}
+                                {groupedSimulados.map(group => (
+                                    <div key={group.title} className="bg-white dark:bg-slate-800/30 rounded-2xl border border-slate-100 dark:border-slate-700 overflow-hidden">
+                                        <div onClick={() => setExpandedSimuladoGroup(expandedSimuladoGroup === group.title ? null : group.title)} className="p-4 flex justify-between items-center cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800 transition">
+                                            <div className="flex items-center gap-3">
+                                                <div className="bg-purple-100 dark:bg-purple-900/30 p-2 rounded-lg text-purple-600 dark:text-purple-400 font-bold text-sm">{group.count}</div>
+                                                <h4 className="font-bold text-slate-800 dark:text-white text-lg">{group.title}</h4>
+                                            </div>
+                                            <div className="flex items-center gap-4">
+                                                <span className={`font-bold ${group.avg >= 80 ? 'text-emerald-500' : 'text-slate-700 dark:text-slate-300'}`}>{group.avg}%</span>
+                                                <i data-lucide="chevron-down" className={`w-5 h-5 text-slate-400 transition-transform ${expandedSimuladoGroup === group.title ? 'rotate-180' : ''}`}></i>
+                                            </div>
+                                        </div>
+                                        {expandedSimuladoGroup === group.title && (
+                                            <div className="border-t border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/50 p-4 space-y-3 animate-fade-in">
+                                                {group.items.map(sim => (
+                                                    <div key={sim.id} className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-white dark:bg-slate-800 p-3 rounded-xl border border-slate-100 dark:border-slate-700">
+                                                        <div>
+                                                            <p className="text-xs text-slate-400 mb-0.5">{sim.date} • {sim.type === 'exam' ? 'Prova' : 'Matéria'}</p>
+                                                            <p className="font-bold text-slate-700 dark:text-slate-200">{sim.subtitle}</p>
+                                                            {sim.notes && <p className="text-xs text-slate-500 italic mt-1">"{sim.notes}"</p>}
+                                                        </div>
+                                                        <div className="flex items-center justify-between w-full sm:w-auto gap-4">
+                                                            <div className="text-right"><span className={`text-lg font-black ${sim.percentage >= 80 ? 'text-emerald-500' : 'text-purple-500'}`}>{sim.percentage}%</span></div>
+                                                            <button onClick={() => deleteSimulado(sim.id)} className="text-slate-300 hover:text-rose-500"><i data-lucide="trash-2" className="w-4 h-4"></i></button>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
                                     </div>
                                 ))}
                             </div>
                         </div>
                     </div>
 
-                     {/* Simulados (AGRUPADOS) */}
-                     <div className="glass-card rounded-[2rem] p-6 md:p-8 mt-12 border-t-4 border-purple-500">
-                        <div className="flex justify-between items-center mb-6">
-                            <div>
-                                <h3 className="text-2xl md:text-3xl font-bold text-slate-800 dark:text-white">Simulados</h3>
-                                <span className="text-xs text-purple-500 font-bold block mt-1">Média Geral: {simuladoAvg}%</span>
-                            </div>
-                            <button onClick={() => setActiveModal('simulado')} className="bg-slate-900 dark:bg-white text-white dark:text-slate-900 px-4 py-2 rounded-xl font-bold text-xs shadow-lg hover:scale-105 transition flex items-center gap-2">
-                                <i data-lucide="clipboard-list" className="w-3 h-3"></i> Novo
-                            </button>
-                        </div>
-                        <div className="space-y-4">
-                            {simulados.length === 0 && <p className="text-slate-400 text-center py-6 italic">Nenhum simulado registrado.</p>}
-                            
-                            {groupedSimulados.map(group => (
-                                <div key={group.title} className="bg-white dark:bg-slate-800/30 rounded-2xl border border-slate-100 dark:border-slate-700 overflow-hidden">
-                                    <div 
-                                        onClick={() => setExpandedSimuladoGroup(expandedSimuladoGroup === group.title ? null : group.title)}
-                                        className="p-4 flex justify-between items-center cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800 transition"
-                                    >
-                                        <div className="flex items-center gap-3">
-                                            <div className="bg-purple-100 dark:bg-purple-900/30 p-2 rounded-lg text-purple-600 dark:text-purple-400 font-bold text-sm">
-                                                {group.count}
-                                            </div>
-                                            <h4 className="font-bold text-slate-800 dark:text-white text-lg">{group.title}</h4>
-                                        </div>
-                                        <div className="flex items-center gap-4">
-                                            <div className="text-right hidden sm:block">
-                                                <span className="text-xs text-slate-400 uppercase font-bold block">Média</span>
-                                                <span className={`font-bold ${group.avg >= 80 ? 'text-emerald-500' : 'text-slate-700 dark:text-slate-300'}`}>{group.avg}%</span>
-                                            </div>
-                                            <i data-lucide="chevron-down" className={`w-5 h-5 text-slate-400 transition-transform ${expandedSimuladoGroup === group.title ? 'rotate-180' : ''}`}></i>
-                                        </div>
-                                    </div>
-                                    
-                                    {expandedSimuladoGroup === group.title && (
-                                        <div className="border-t border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/50 p-4 space-y-3 animate-fade-in">
-                                            {group.items.map(sim => (
-                                                <div key={sim.id} className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-white dark:bg-slate-800 p-3 rounded-xl border border-slate-100 dark:border-slate-700">
-                                                    <div>
-                                                        <p className="text-xs text-slate-400 mb-0.5">{sim.date} • {sim.type === 'exam' ? 'Prova' : 'Matéria'}</p>
-                                                        <p className="font-bold text-slate-700 dark:text-slate-200">{sim.subtitle}</p>
-                                                        {sim.notes && <p className="text-xs text-slate-500 italic mt-1">"{sim.notes}"</p>}
-                                                    </div>
-                                                    <div className="flex items-center justify-between w-full sm:w-auto gap-4">
-                                                        <div className="text-right">
-                                                             <span className={`text-lg font-black ${sim.percentage >= 80 ? 'text-emerald-500' : 'text-purple-500'}`}>{sim.percentage}%</span>
-                                                             <p className="text-[10px] text-slate-400 uppercase">{sim.correct}/{sim.total}</p>
-                                                        </div>
-                                                        <button onClick={() => deleteSimulado(sim.id)} className="text-slate-300 hover:text-rose-500"><i data-lucide="trash-2" className="w-4 h-4"></i></button>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* Hero Footer Button */}
-                    <div className="text-center mt-20">
-                        <button onClick={() => setActiveModal('finish')} className="group relative inline-flex items-center justify-center px-12 py-6 bg-gradient-to-r from-emerald-500 to-teal-600 rounded-full shadow-2xl hover:shadow-emerald-500/40 hover:-translate-y-1 transition-all duration-300 w-full sm:w-auto">
+                    {/* Hero Footer Button - FIXED at the bottom of container, centered */}
+                    <div className="flex justify-center mt-24 mb-12">
+                        <button onClick={() => setActiveModal('finish')} className="group relative inline-flex items-center justify-center px-12 py-6 bg-gradient-to-r from-emerald-500 to-teal-600 rounded-full shadow-2xl hover:shadow-emerald-500/40 hover:-translate-y-1 transition-all duration-300 w-full sm:w-auto max-w-md">
                             <span className="text-2xl font-black text-white tracking-wide mr-3">CONCLUIR SEMANA</span>
                             <i data-lucide="check-circle-2" className="w-8 h-8 text-white/80 animate-bounce"></i>
                         </button>
-                        <p className="mt-4 text-slate-400 font-medium">Clique para salvar o progresso e iniciar um novo ciclo.</p>
                     </div>
 
                     {/* --- MODALS --- */}
@@ -826,41 +788,83 @@
                                 <input value={profileForm.avatar} onChange={e => setProfileForm({...profileForm, avatar: e.target.value})} className="w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-bold text-center text-2xl" maxLength="2" />
                             </div>
                             <div>
+                                <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">Foto de Perfil (Opcional)</label>
+                                <input type="file" accept="image/*" onChange={handlePhotoUpload} className="w-full p-2 text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-bold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100" />
+                            </div>
+                            <div>
                                 <label className="block text-xs font-bold text-slate-500 mb-3 uppercase">Tema de Cores</label>
                                 <div className="flex gap-3 justify-center flex-wrap">
                                     {Object.entries(THEMES).map(([key, theme]) => (
-                                        <button key={key} type="button" onClick={() => handleThemeChange(key)} className={`w-10 h-10 rounded-full ${theme.bg} border-2 ${userProfile.theme === key ? 'border-white ring-2 ring-slate-300' : 'border-transparent'} transition`}></button>
+                                        <button key={key} type="button" onClick={() => handleThemeChange(key)} className={`w-10 h-10 rounded-full ${theme.bg} border-2 ${userProfile.theme === key ? 'border-white ring-2 ring-slate-300' : 'border-transparent'} transition transform hover:scale-110`}></button>
                                     ))}
                                 </div>
                             </div>
-                            <button type="submit" className={`w-full py-3 rounded-xl font-bold text-white ${activeTheme.bg}`}>Salvar Perfil</button>
+                            <button type="submit" className={`w-full py-3 rounded-xl font-bold text-white ${activeTheme.bg} shadow-lg`}>Salvar Perfil</button>
                         </form>
                     </Modal>
 
                     {/* Achievements Modal */}
-                    <Modal isOpen={activeModal === 'achievements'} onClose={() => setActiveModal(null)} title="Conquistas">
+                    <Modal isOpen={activeModal === 'achievements'} onClose={() => setActiveModal(null)} title="Galeria de Conquistas" className="max-w-3xl">
                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             {ACHIEVEMENTS_LIST.map(ach => {
                                 const isUnlocked = achievements.includes(ach.id);
                                 return (
-                                    <div key={ach.id} className={`p-4 rounded-xl border ${isUnlocked ? 'bg-white dark:bg-slate-800 border-emerald-200 dark:border-emerald-900/30' : 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800 achievement-locked'}`}>
-                                        <div className="flex items-center gap-3 mb-2">
-                                            <div className={`p-2 rounded-lg ${isUnlocked ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-200 text-slate-400'}`}>
-                                                <i data-lucide={ach.icon} className="w-5 h-5"></i>
+                                    <div key={ach.id} className={`relative overflow-hidden p-5 rounded-2xl border transition-all duration-300 achievement-card ${isUnlocked ? 'bg-white dark:bg-slate-800 border-transparent shadow-lg scale-[1.02]' : 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800 achievement-locked'}`}>
+                                        {isUnlocked && <div className={`absolute inset-0 opacity-10 bg-gradient-to-br ${ach.gradient.replace('linear-gradient(135deg, ', '').replace(')', '')}`}></div>}
+                                        <div className="relative z-10 flex items-start gap-4">
+                                            <div className={`p-3 rounded-xl shadow-inner text-white`} style={{background: ach.gradient}}>
+                                                <i data-lucide={ach.icon} className="w-6 h-6"></i>
                                             </div>
-                                            <div>
-                                                <h4 className="font-bold text-slate-800 dark:text-white text-sm">{ach.title}</h4>
-                                                <span className="text-[10px] font-bold bg-indigo-100 text-indigo-600 px-1.5 py-0.5 rounded">{ach.xp} XP</span>
+                                            <div className="flex-1">
+                                                <h4 className="font-bold text-slate-800 dark:text-white text-base mb-1">{ach.title}</h4>
+                                                <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed mb-2">{ach.desc}</p>
+                                                <span className={`text-[10px] font-black px-2 py-1 rounded uppercase tracking-wider ${isUnlocked ? 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300' : 'bg-slate-200 text-slate-400'}`}>{ach.xp} XP</span>
                                             </div>
                                         </div>
-                                        <p className="text-xs text-slate-500">{ach.desc}</p>
+                                        {isUnlocked && <div className="absolute top-2 right-2 text-emerald-500"><i data-lucide="check-circle" className="w-4 h-4"></i></div>}
                                     </div>
                                 );
                             })}
                          </div>
                     </Modal>
 
-                    {/* 1. Edit Task Modal */}
+                    {/* Error Notebook Modal */}
+                    <Modal isOpen={activeModal === 'errors'} onClose={() => setActiveModal(null)} title="Caderno de Erros" className="max-w-4xl">
+                         <div className="flex flex-col md:flex-row gap-8 h-[65vh]">
+                             <div className="w-full md:w-1/3 bg-slate-50 dark:bg-slate-800/50 p-5 rounded-2xl h-fit border border-slate-100 dark:border-slate-700">
+                                <h4 className="font-bold text-slate-700 dark:text-white mb-3 text-sm uppercase">Novo Registro</h4>
+                                <form onSubmit={handleAddErrorNote} className="space-y-3">
+                                    <input placeholder="Matéria (ex: Matemática)" value={errorNoteForm.subject} onChange={e => setErrorNoteForm({...errorNoteForm, subject: e.target.value})} className="w-full p-2.5 bg-white dark:bg-slate-900 rounded-lg text-sm border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 ring-indigo-500" />
+                                    <input placeholder="Assunto/Título" value={errorNoteForm.title} onChange={e => setErrorNoteForm({...errorNoteForm, title: e.target.value})} className="w-full p-2.5 bg-white dark:bg-slate-900 rounded-lg text-sm border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 ring-indigo-500" />
+                                    <textarea placeholder="O que eu errei? O que aprendi?" value={errorNoteForm.description} onChange={e => setErrorNoteForm({...errorNoteForm, description: e.target.value})} className="w-full p-2.5 bg-white dark:bg-slate-900 rounded-lg text-sm border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 ring-indigo-500 h-32 resize-none"></textarea>
+                                    <button type="submit" className={`w-full py-2.5 ${activeTheme.bg} text-white rounded-lg font-bold shadow-md hover:opacity-90`}>Adicionar Nota</button>
+                                </form>
+                             </div>
+                             <div className="w-full md:w-2/3 overflow-y-auto p-1">
+                                {errorNotes.length === 0 ? (
+                                    <div className="h-full flex flex-col items-center justify-center text-slate-400 opacity-50"><i data-lucide="book-open" className="w-12 h-12 mb-2"></i><p>Caderno vazio.</p></div>
+                                ) : (
+                                    <div className="space-y-3">
+                                        {errorNotes.map(note => (
+                                            <div key={note.id} className="p-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm relative group">
+                                                <div className="flex justify-between items-start mb-2">
+                                                    <div>
+                                                        <span className="text-[10px] font-bold uppercase text-white px-2 py-1 rounded mb-1 inline-block" style={{backgroundColor: getColor(note.subject)}}>{note.subject}</span>
+                                                        <h4 className="font-bold text-slate-800 dark:text-white text-base">{note.title}</h4>
+                                                    </div>
+                                                    <span className="text-[10px] text-slate-400">{note.date}</span>
+                                                </div>
+                                                <p className="text-sm text-slate-600 dark:text-slate-300 whitespace-pre-wrap">{note.description}</p>
+                                                <button onClick={() => deleteErrorNote(note.id)} className="absolute top-4 right-4 text-slate-300 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition"><i data-lucide="trash-2" className="w-4 h-4"></i></button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                             </div>
+                         </div>
+                    </Modal>
+
+                    {/* Edit Task Modal */}
                     <Modal isOpen={activeModal === 'task'} onClose={() => setActiveModal(null)} title="Editar Matéria">
                         {selectedTask && (
                             <form onSubmit={handleSaveTaskEdit} className="space-y-6">
@@ -872,15 +876,15 @@
                                     <div>
                                         <label className="font-bold text-slate-500 mb-2 block">Planejado</label>
                                         <div className="flex gap-2">
-                                            <input type="number" name="plannedH" className="w-full p-3 bg-slate-100 dark:bg-slate-800 rounded-xl font-bold outline-none" defaultValue={Math.floor(selectedTask.planned/60)} placeholder="H" />
-                                            <input type="number" name="plannedM" className="w-full p-3 bg-slate-100 dark:bg-slate-800 rounded-xl font-bold outline-none" defaultValue={selectedTask.planned%60} placeholder="M" />
+                                            <input type="number" value={editTaskForm.plannedH} onChange={e => setEditTaskForm({...editTaskForm, plannedH: e.target.value})} className="w-full p-3 bg-slate-100 dark:bg-slate-800 rounded-xl font-bold outline-none" placeholder="H" />
+                                            <input type="number" value={editTaskForm.plannedM} onChange={e => setEditTaskForm({...editTaskForm, plannedM: e.target.value})} className="w-full p-3 bg-slate-100 dark:bg-slate-800 rounded-xl font-bold outline-none" placeholder="M" />
                                         </div>
                                     </div>
                                     <div>
                                         <label className="font-bold text-slate-500 mb-2 block">Estudado</label>
                                         <div className="flex gap-2">
-                                            <input type="number" name="studiedH" className="w-full p-3 bg-slate-100 dark:bg-slate-800 rounded-xl font-bold outline-none" defaultValue={Math.floor(selectedTask.studied/60)} placeholder="H" />
-                                            <input type="number" name="studiedM" className="w-full p-3 bg-slate-100 dark:bg-slate-800 rounded-xl font-bold outline-none" defaultValue={selectedTask.studied%60} placeholder="M" />
+                                            <input type="number" value={editTaskForm.studiedH} onChange={e => setEditTaskForm({...editTaskForm, studiedH: e.target.value})} className="w-full p-3 bg-slate-100 dark:bg-slate-800 rounded-xl font-bold outline-none" placeholder="H" />
+                                            <input type="number" value={editTaskForm.studiedM} onChange={e => setEditTaskForm({...editTaskForm, studiedM: e.target.value})} className="w-full p-3 bg-slate-100 dark:bg-slate-800 rounded-xl font-bold outline-none" placeholder="M" />
                                         </div>
                                     </div>
                                 </div>
@@ -888,69 +892,29 @@
                             </form>
                         )}
                     </Modal>
-                    
-                     {/* 2. Pomodoro Modal */}
-                     <Modal isOpen={activeModal === 'pomodoro'} onClose={() => setActiveModal(null)} title="Modo Foco">
-                        <div className="text-center p-8">
-                            <div className="text-8xl font-black text-slate-800 dark:text-white mb-8 tracking-tighter font-mono">
-                                {String(Math.floor(pomoTime / 60)).padStart(2, '0')}:{String(pomoTime % 60).padStart(2, '0')}
-                            </div>
-                            <div className="flex justify-center gap-4 mb-8">
-                                <button onClick={togglePomodoro} className={`px-8 py-4 rounded-2xl font-bold text-xl text-white transition shadow-lg ${pomoActive ? 'bg-rose-500 hover:bg-rose-600' : 'bg-emerald-500 hover:bg-emerald-600'}`}>
-                                    {pomoActive ? 'Pausar' : 'Iniciar'}
-                                </button>
-                                <button onClick={() => resetPomodoro()} className="px-4 py-4 rounded-2xl font-bold text-slate-500 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 transition">
-                                    Reset
-                                </button>
-                            </div>
-                            <div className="flex justify-center gap-2">
-                                <button onClick={() => resetPomodoro('focus')} className={`px-4 py-2 rounded-lg text-sm font-bold ${pomoMode==='focus' ? 'bg-indigo-100 text-indigo-600' : 'text-slate-400'}`}>Foco 25m</button>
-                                <button onClick={() => resetPomodoro('break')} className={`px-4 py-2 rounded-lg text-sm font-bold ${pomoMode==='break' ? 'bg-indigo-100 text-indigo-600' : 'text-slate-400'}`}>Pausa 5m</button>
-                            </div>
-                        </div>
-                    </Modal>
 
-                    {/* 3. Add Task */}
+                    {/* Add Task */}
                     <Modal isOpen={activeModal === 'add_task'} onClose={() => setActiveModal(null)} title="Adicionar Matéria">
                         <div className="space-y-6">
-                            <div>
-                                <label className="font-bold text-slate-500 mb-2 block">Nome da Matéria</label>
-                                <input 
-                                    value={newTaskForm.subject} onChange={e => setNewTaskForm({...newTaskForm, subject: e.target.value})}
-                                    className="w-full p-4 text-lg font-bold bg-slate-50 dark:bg-slate-800 rounded-xl outline-none border border-slate-200 dark:border-slate-700 focus:border-indigo-500" 
-                                    placeholder="Ex: Programação, Yoga..." 
-                                />
-                            </div>
+                            <div><label className="font-bold text-slate-500 mb-2 block">Nome da Matéria</label><input value={newTaskForm.subject} onChange={e => setNewTaskForm({...newTaskForm, subject: e.target.value})} className="w-full p-4 text-lg font-bold bg-slate-50 dark:bg-slate-800 rounded-xl outline-none border border-slate-200 dark:border-slate-700 focus:border-indigo-500" placeholder="Ex: Programação, Yoga..." /></div>
                             <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="font-bold text-slate-500 mb-2 block">Horas</label>
-                                    <input type="number" min="0" value={newTaskForm.hours} onChange={e => setNewTaskForm({...newTaskForm, hours: e.target.value})} className="w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-800 font-bold outline-none" />
-                                </div>
-                                <div>
-                                    <label className="font-bold text-slate-500 mb-2 block">Minutos</label>
-                                    <input type="number" min="0" max="59" value={newTaskForm.minutes} onChange={e => setNewTaskForm({...newTaskForm, minutes: e.target.value})} className="w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-800 font-bold outline-none" />
-                                </div>
+                                <div><label className="font-bold text-slate-500 mb-2 block">Horas</label><input type="number" min="0" value={newTaskForm.hours} onChange={e => setNewTaskForm({...newTaskForm, hours: e.target.value})} className="w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-800 font-bold outline-none" /></div>
+                                <div><label className="font-bold text-slate-500 mb-2 block">Minutos</label><input type="number" min="0" max="59" value={newTaskForm.minutes} onChange={e => setNewTaskForm({...newTaskForm, minutes: e.target.value})} className="w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-800 font-bold outline-none" /></div>
                             </div>
                             <button onClick={handleAddTask} className={`w-full py-4 ${activeTheme.bg} text-white rounded-xl font-bold shadow-lg hover:opacity-90`}>Adicionar ao Dia</button>
                         </div>
                     </Modal>
 
-                    {/* 4. Settings (Weights) */}
+                    {/* Settings */}
                     <Modal isOpen={activeModal === 'settings'} onClose={() => setActiveModal(null)} title="Configurar Pesos">
                         <div className="p-6 mb-6 bg-indigo-50 dark:bg-indigo-500/10 rounded-2xl border border-indigo-100 dark:border-indigo-500/20 flex justify-between items-center">
-                            <div>
-                                <label className="block text-xs font-bold text-indigo-800 dark:text-indigo-300 uppercase mb-1">Meta Semanal (Horas)</label>
-                                <input type="number" value={grandTotalHours} onChange={e => setGrandTotalHours(parseInt(e.target.value)||0)} className={`text-3xl font-black bg-transparent ${activeTheme.class} outline-none w-32 border-b-2 border-indigo-300`} />
-                            </div>
+                            <div><label className="block text-xs font-bold text-indigo-800 dark:text-indigo-300 uppercase mb-1">Meta Semanal (Horas)</label><input type="number" value={grandTotalHours} onChange={e => setGrandTotalHours(parseInt(e.target.value)||0)} className={`text-3xl font-black bg-transparent ${activeTheme.class} outline-none w-32 border-b-2 border-indigo-300`} /></div>
                             <button onClick={distributeHours} className={`${activeTheme.bg} text-white px-6 py-3 rounded-xl font-bold shadow-lg hover:opacity-90 transition`}>Calcular e Distribuir</button>
                         </div>
                         <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2">
                             {Object.keys(weights).sort().map(s => (
                                 <div key={s} className="flex justify-between items-center p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl">
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-3 h-3 rounded-full" style={{backgroundColor: getColor(s)}}></div>
-                                        <span className="font-bold text-slate-700 dark:text-white">{s}</span>
-                                    </div>
+                                    <div className="flex items-center gap-3"><div className="w-3 h-3 rounded-full" style={{backgroundColor: getColor(s)}}></div><span className="font-bold text-slate-700 dark:text-white">{s}</span></div>
                                     <div className="flex items-center bg-white dark:bg-slate-900 rounded-lg p-1 shadow-sm">
                                         <button onClick={() => setWeights({...weights, [s]: Math.max(1, weights[s]-1)})} className="w-8 h-8 font-bold text-slate-400 hover:text-indigo-500">-</button>
                                         <span className="w-8 text-center font-bold dark:text-white">{weights[s]}</span>
@@ -961,28 +925,19 @@
                         </div>
                     </Modal>
 
-                    {/* 5. Essay Modal */}
+                    {/* Essay Modal */}
                     <Modal isOpen={activeModal === 'essay'} onClose={() => setActiveModal(null)} title="Nova Redação">
                         <form onSubmit={handleAddEssay} className="space-y-5">
-                            <input 
-                                value={essayForm.theme} onChange={e => setEssayForm({...essayForm, theme: e.target.value})}
-                                className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-xl font-medium outline-none focus:ring-2 ring-indigo-500" placeholder="Tema da redação" 
-                            />
+                            <input value={essayForm.theme} onChange={e => setEssayForm({...essayForm, theme: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-xl font-medium outline-none focus:ring-2 ring-indigo-500" placeholder="Tema da redação" />
                             <div className="grid grid-cols-2 gap-4">
-                                <input 
-                                    value={essayForm.genre} onChange={e => setEssayForm({...essayForm, genre: e.target.value})}
-                                    className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-xl font-medium outline-none focus:ring-2 ring-indigo-500" placeholder="Gênero" 
-                                />
-                                <input 
-                                    type="number" max="1000" value={essayForm.grade} onChange={e => setEssayForm({...essayForm, grade: e.target.value})}
-                                    className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-xl font-medium outline-none focus:ring-2 ring-indigo-500" placeholder="Nota (0-1000)" 
-                                />
+                                <input value={essayForm.genre} onChange={e => setEssayForm({...essayForm, genre: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-xl font-medium outline-none focus:ring-2 ring-indigo-500" placeholder="Gênero" />
+                                <input type="number" max="1000" value={essayForm.grade} onChange={e => setEssayForm({...essayForm, grade: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-xl font-medium outline-none focus:ring-2 ring-indigo-500" placeholder="Nota (0-1000)" />
                             </div>
                             <button type="submit" className={`w-full py-4 ${activeTheme.bg} text-white rounded-xl font-bold shadow-lg hover:opacity-90`}>Adicionar</button>
                         </form>
                     </Modal>
 
-                    {/* 6. Simulado Modal */}
+                    {/* Simulado Modal */}
                     <Modal isOpen={activeModal === 'simulado'} onClose={() => setActiveModal(null)} title="Novo Simulado">
                         <div className="space-y-6">
                             <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
@@ -1008,6 +963,27 @@
                                 <div><label className="block text-xs font-bold text-slate-400 uppercase mb-1">Análise de Erros</label><textarea value={simuladoForm.notes} onChange={e => setSimuladoForm({...simuladoForm, notes: e.target.value})} className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-xl font-medium outline-none focus:ring-2 ring-indigo-500 h-24 resize-none" placeholder="O que errei?"></textarea></div>
                                 <button type="submit" className="w-full py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl font-bold shadow-lg hover:shadow-xl transition">Salvar Simulado</button>
                             </form>
+                        </div>
+                    </Modal>
+
+                    {/* 6. Pomodoro Modal */}
+                     <Modal isOpen={activeModal === 'pomodoro'} onClose={() => setActiveModal(null)} title="Modo Foco">
+                        <div className="text-center p-8">
+                            <div className="text-8xl font-black text-slate-800 dark:text-white mb-8 tracking-tighter font-mono">
+                                {String(Math.floor(pomoTime / 60)).padStart(2, '0')}:{String(pomoTime % 60).padStart(2, '0')}
+                            </div>
+                            <div className="flex justify-center gap-4 mb-8">
+                                <button onClick={togglePomodoro} className={`px-8 py-4 rounded-2xl font-bold text-xl text-white transition shadow-lg ${pomoActive ? 'bg-rose-500 hover:bg-rose-600' : 'bg-emerald-500 hover:bg-emerald-600'}`}>
+                                    {pomoActive ? 'Pausar' : 'Iniciar'}
+                                </button>
+                                <button onClick={() => resetPomodoro()} className="px-4 py-4 rounded-2xl font-bold text-slate-500 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 transition">
+                                    Reset
+                                </button>
+                            </div>
+                            <div className="flex justify-center gap-2">
+                                <button onClick={() => resetPomodoro('focus')} className={`px-4 py-2 rounded-lg text-sm font-bold ${pomoMode==='focus' ? 'bg-indigo-100 text-indigo-600' : 'text-slate-400'}`}>Foco 25m</button>
+                                <button onClick={() => resetPomodoro('break')} className={`px-4 py-2 rounded-lg text-sm font-bold ${pomoMode==='break' ? 'bg-indigo-100 text-indigo-600' : 'text-slate-400'}`}>Pausa 5m</button>
+                            </div>
                         </div>
                     </Modal>
 
@@ -1040,7 +1016,7 @@
                                         <div key={h.id} className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-800">
                                             <div className="flex justify-between mb-1">
                                                 <span className="font-bold dark:text-white">{new Date(h.dateISO).toLocaleDateString()}</span>
-                                                <span className={`font-bold ${activeTheme.class}`}>{h.percent}%</span>
+                                                <span className="font-bold text-indigo-500">{h.percent}%</span>
                                             </div>
                                             <p className="text-sm text-slate-500 italic">"{h.note || 'Sem nota'}"</p>
                                         </div>
@@ -1050,6 +1026,16 @@
                         </div>
                     </Modal>
 
+                    {/* 8. Finish Week Modal */}
+                    <Modal isOpen={activeModal === 'finish'} onClose={() => setActiveModal(null)} title="Concluir Semana">
+                        <p className="text-slate-500 mb-4">Salve o progresso e inicie uma nova semana.</p>
+                        <textarea id="finishNote" className="w-full p-4 bg-slate-50 dark:bg-slate-900 rounded-2xl outline-none focus:ring-2 ring-emerald-500 min-h-[100px] text-slate-900 dark:text-white" placeholder="Notas sobre a semana..."></textarea>
+                        <div className="flex gap-3 mt-6">
+                             <button onClick={() => setActiveModal(null)} className="flex-1 py-3 rounded-xl font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800">Cancelar</button>
+                             <button onClick={() => finishWeek(document.getElementById('finishNote').value)} className="flex-1 py-3 rounded-xl font-bold text-white bg-emerald-600 hover:bg-emerald-500 shadow-lg">Salvar</button>
+                        </div>
+                    </Modal>
+                    
                     {/* Toggle Theme & Help */}
                     <button onClick={() => setIsDark(!isDark)} className="fixed top-6 right-6 z-40 p-3 rounded-full bg-white/80 dark:bg-slate-800/80 backdrop-blur-md shadow-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:scale-110 transition-all">
                         {isDark ? <i data-lucide="sun" className="w-6 h-6"></i> : <i data-lucide="moon" className="w-6 h-6"></i>}
@@ -1062,8 +1048,8 @@
                     <div className={`fixed bottom-24 right-6 z-30 max-w-xs bg-white/90 dark:bg-slate-900/90 backdrop-blur-md rounded-2xl p-5 shadow-2xl border border-slate-200 dark:border-slate-700 transition-all duration-300 ${showHelp ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10 pointer-events-none'}`}>
                         <h4 className="font-bold mb-2 dark:text-white">Ajuda Rápida</h4>
                         <p className="text-sm text-slate-600 dark:text-slate-400">
-                            <b>Gamificação:</b> Ganhe XP estudando e completando tarefas!<br/>
-                            <b>Personalizar:</b> Clique no seu nome/avatar para mudar o tema.
+                            <b>Renomear Matéria:</b> Clique em qualquer matéria na semana e edite o nome no topo do cartão.<br/><br/>
+                            Use o botão <b>Configurar Metas</b> para ajustar pesos (1-5).
                         </p>
                     </div>
 
